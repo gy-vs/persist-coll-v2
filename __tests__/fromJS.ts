@@ -77,4 +77,73 @@ describe('fromJS', () => {
       {}
     );
   });
+
+  it('provides the full key path to the reviver, including empty string keys', () => {
+    const paths: Array<Array<string | number>> = [];
+    fromJS(
+      {
+        x: { '': { deep: { v: 1 } }, after: { w: 2 } },
+        y: { z: 3 },
+      },
+      (key, sequence, path) => {
+        paths.push(path!);
+        return sequence.toMap();
+      }
+    );
+    expect(paths).toEqual([
+      [],
+      ['x'],
+      ['x', ''],
+      ['x', '', 'deep'],
+      ['x', 'after'],
+      ['y'],
+    ]);
+  });
+
+  it('keeps empty string keys in paths alongside array indices', () => {
+    const paths: Array<Array<string | number>> = [];
+    fromJS({ '': [{ '': 1 }], list: [{ '': 2 }] }, (key, sequence, path) => {
+      paths.push(path!);
+      return sequence.toMap();
+    });
+    expect(paths).toEqual([[], [''], ['', 0], ['list'], ['list', 0]]);
+  });
+
+  it('provides the full key path when revivers defer sequence evaluation', () => {
+    const paths: Array<Array<string | number>> = [];
+    const result = fromJS({ a: { b: { c: 1 } } }, (key, sequence, path) => {
+      paths.push(path!);
+      // Do not materialize the sequence now; it is evaluated later via toJS.
+      return sequence;
+    });
+    // Force the lazy mapping to evaluate after fromJS fully unwound.
+    result.toJS();
+    expect(paths).toEqual([[], ['a'], ['a', 'b']]);
+  });
+
+  it('reports correct paths when deferred evaluation happens asynchronously', done => {
+    const paths: Array<Array<string | number>> = [];
+    const result = fromJS({ a: { b: [{ c: 1 }] } }, (key, sequence, path) => {
+      paths.push(path!);
+      return sequence;
+    });
+    setImmediate(() => {
+      result.toJS();
+      expect(paths).toEqual([[], ['a'], ['a', 'b'], ['a', 'b', 0]]);
+      done();
+    });
+  });
+
+  it('passes independent path snapshots to each reviver call', () => {
+    const paths: Array<Array<string | number>> = [];
+    fromJS({ a: { b: { c: 1 } } }, (key, sequence, path) => {
+      paths.push(path!);
+      return sequence.toMap();
+    });
+    expect(paths[0]).toEqual([]);
+    expect(paths[1]).toEqual(['a']);
+    expect(paths[2]).toEqual(['a', 'b']);
+    expect(paths[0]).not.toBe(paths[1]);
+    expect(paths[1]).not.toBe(paths[2]);
+  });
 });

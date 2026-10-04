@@ -7,17 +7,32 @@ import isArrayLike from './utils/isArrayLike';
 import isPlainObj from './utils/isPlainObj';
 
 export function fromJS(value, converter) {
+  // The root frame has no real parent, but the reviver receives the parent
+  // value as `this` and looks up its own key ("") on it, so seed a sentinel
+  // parent with the starting value. The same sentinel also marks the root
+  // frame while building key paths, and is local per call so nested fromJS
+  // invocations (for example from inside a reviver) cannot interfere.
+  const rootParent = { '': value };
   return fromJSWith(
     [],
     converter || defaultConverter,
     value,
     '',
     converter && converter.length > 2 ? [] : undefined,
-    { '': value }
+    rootParent,
+    true
   );
 }
 
-function fromJSWith(stack, converter, value, key, keyPath, parentValue) {
+function fromJSWith(
+  stack,
+  converter,
+  value,
+  key,
+  keyPath,
+  parentValue,
+  isRoot
+) {
   if (
     typeof value !== 'string' &&
     !isImmutable(value) &&
@@ -27,17 +42,22 @@ function fromJSWith(stack, converter, value, key, keyPath, parentValue) {
       throw new TypeError('Cannot convert circular structure to Immutable');
     }
     stack.push(value);
-    keyPath && key !== '' && keyPath.push(key);
+    // Give every node its own key path snapshot. The Seq#map below is evaluated
+    // lazily (possibly long after this frame returned), so a single shared
+    // path array mutated with push/pop would report whichever frame happened
+    // to be current when a nested node was finally iterated. Building a fresh
+    // array per node also keeps falsy keys such as the empty string as a real
+    // part of the path instead of being skipped.
+    const nodeKeyPath = keyPath && (isRoot ? keyPath : keyPath.concat(key));
     const converted = converter.call(
       parentValue,
       key,
       Seq(value).map((v, k) =>
-        fromJSWith(stack, converter, v, k, keyPath, value)
+        fromJSWith(stack, converter, v, k, nodeKeyPath, value, false)
       ),
-      keyPath && keyPath.slice()
+      nodeKeyPath && nodeKeyPath.slice()
     );
     stack.pop();
-    keyPath && keyPath.pop();
     return converted;
   }
   return value;

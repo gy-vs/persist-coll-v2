@@ -5407,9 +5407,13 @@ declare namespace Immutable {
 
   type FromJS<JSValue> = JSValue extends FromJSNoTransform
     ? JSValue
-    : JSValue extends Array<any>
+    : JSValue extends ReadonlyArray<any>
     ? FromJSArray<JSValue>
-    : JSValue extends {}
+    : JSValue extends ReadonlyMap<any, any>
+    ? FromJSMap<JSValue>
+    : JSValue extends ReadonlySet<any>
+    ? FromJSSet<JSValue>
+    : JSValue extends object
     ? FromJSObject<JSValue>
     : any;
 
@@ -5417,14 +5421,29 @@ declare namespace Immutable {
     | Collection<any, any>
     | number
     | string
+    | boolean
+    | bigint
+    | symbol
+    | Date
+    | RegExp
     | null
     | undefined;
 
-  type FromJSArray<JSValue> = JSValue extends Array<infer T>
+  type FromJSArray<JSValue> = JSValue extends ReadonlyArray<infer T>
     ? List<FromJS<T>>
     : never;
 
-  type FromJSObject<JSValue> = JSValue extends {}
+  // Native Maps and Sets are iterated once by the default converter without
+  // recursively visiting their entries, so values keep their original types.
+  type FromJSMap<JSValue> = JSValue extends ReadonlyMap<infer K, infer V>
+    ? Map<K, V>
+    : never;
+
+  type FromJSSet<JSValue> = JSValue extends ReadonlySet<infer T>
+    ? Set<T>
+    : never;
+
+  type FromJSObject<JSValue> = JSValue extends object
     ? Map<keyof JSValue, FromJS<JSValue[keyof JSValue]>>
     : never;
 
