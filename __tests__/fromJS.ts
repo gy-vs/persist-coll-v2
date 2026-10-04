@@ -1,6 +1,6 @@
 import { runInNewContext } from 'vm';
 
-import { List, Map, Set, isCollection, fromJS } from 'immutable';
+import { List, Map, Set, isCollection, isKeyed, fromJS } from 'immutable';
 
 describe('fromJS', () => {
   it('convert Array to Immutable.List', () => {
@@ -58,6 +58,35 @@ describe('fromJS', () => {
     const result = fromJS(new Test());
     expect(isCollection(result)).toBe(false);
     expect(result instanceof Test).toBe(true);
+  });
+
+  it('provides the full key path to the reviver, including empty string keys', () => {
+    const paths: Array<Array<string | number> | undefined> = [];
+    fromJS(
+      { x: { '': { deep: { v: 1 } }, after: { w: 2 } }, y: { z: 3 } },
+      (key, value, path) => {
+        paths.push(path);
+        return isKeyed(value) ? value.toMap() : value.toList();
+      }
+    );
+    expect(paths).toEqual([
+      [],
+      ['x'],
+      ['x', ''],
+      ['x', '', 'deep'],
+      ['x', 'after'],
+      ['y'],
+    ]);
+  });
+
+  it('provides the full key path to the reviver when sequences are converted lazily', () => {
+    const paths: Array<Array<string | number> | undefined> = [];
+    const result = fromJS({ a: { b: { c: 1 } } }, (key, value, path) => {
+      paths.push(path);
+      return value;
+    });
+    result.toJS();
+    expect(paths).toEqual([[], ['a'], ['a', 'b']]);
   });
 
   it('is iterable outside of a vm', () => {

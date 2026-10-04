@@ -888,7 +888,7 @@ declare namespace Immutable {
   }
 
   // Loosely based off of this work.
-  // 
+  //
 
   /** @ignore */
   type GetMapType<S> = S extends MapOf<infer T> ? T : S;
@@ -5407,6 +5407,10 @@ declare namespace Immutable {
 
   type FromJS<JSValue> = JSValue extends FromJSNoTransform
     ? JSValue
+    : JSValue extends globalThis.Map<infer K, infer V>
+    ? FromJSMap<K, V>
+    : JSValue extends globalThis.Set<infer T>
+    ? FromJSSet<T>
     : JSValue extends Array<any>
     ? FromJSArray<JSValue>
     : JSValue extends {}
@@ -5417,8 +5421,14 @@ declare namespace Immutable {
     | Collection<any, any>
     | number
     | string
+    | boolean
+    | Date
     | null
     | undefined;
+
+  type FromJSMap<K, V> = Map<K, FromJS<V>>;
+
+  type FromJSSet<T> = Set<FromJS<T>>;
 
   type FromJSArray<JSValue> = JSValue extends Array<infer T>
     ? List<FromJS<T>>

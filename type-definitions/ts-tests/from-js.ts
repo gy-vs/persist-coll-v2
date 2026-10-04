@@ -1,5 +1,5 @@
 import { expect, test } from 'tstyche';
-import { fromJS, Collection, List, Map, MapOf } from 'immutable';
+import { fromJS, Collection, List, Map, MapOf, Set } from 'immutable';
 
 test('fromJS', () => {
   expect(fromJS({}, (a: any, b: any) => b)).type.toBe<
@@ -29,6 +29,22 @@ test('fromJS', () => {
   expect(fromJS({ a: { b: { c: 0 } } })).type.toBe<
     Map<'a', Map<'b', Map<'c', number>>>
   >();
+});
+
+test('fromJS with native JS types', () => {
+  expect(fromJS(new globalThis.Map([['a', { x: 1 }]]))).type.toBe<
+    Map<string, Map<'x', number>>
+  >();
+
+  expect(fromJS(new globalThis.Set([1, 2]))).type.toBe<Set<number>>();
+
+  expect(fromJS(true)).type.toBe<boolean>();
+
+  expect(fromJS(new Date())).type.toBe<Date>();
+
+  expect(
+    fromJS({ tags: new globalThis.Set(['x']), flag: true, when: new Date() })
+  ).type.toBe<Map<'tags' | 'flag' | 'when', Set<string> | boolean | Date>>();
 });
 
 test('fromJS in an array of function', () => {

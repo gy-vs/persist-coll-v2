@@ -27,17 +27,15 @@ function fromJSWith(stack, converter, value, key, keyPath, parentValue) {
       throw new TypeError('Cannot convert circular structure to Immutable');
     }
     stack.push(value);
-    keyPath && key !== '' && keyPath.push(key);
     const converted = converter.call(
       parentValue,
       key,
       Seq(value).map((v, k) =>
-        fromJSWith(stack, converter, v, k, keyPath, value)
+        fromJSWith(stack, converter, v, k, keyPath && keyPath.concat(k), value)
       ),
       keyPath && keyPath.slice()
     );
     stack.pop();
-    keyPath && keyPath.pop();
     return converted;
   }
   return value;
